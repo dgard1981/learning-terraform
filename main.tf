@@ -22,7 +22,7 @@ resource "aws_instance" "blog" {
   ami           = data.aws_ami.app_ami.id
   instance_type = var.instance_type
 
-  keyName = "terraform-course"
+  key_name = "terraform-course"
 
   vpc_security_group_ids = [aws_security_group.blog.id]
 
