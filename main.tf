@@ -14,8 +14,25 @@ data "aws_ami" "app_ami" {
   owners = ["979382823631"] # Bitnami
 }
 
-data "aws_vpc" "default" {
-  default = true
+data "aws_availability_zones" "available" {
+  state = "available"
+}
+
+module "dev_vpc" {
+  source = "terraform-aws-modules/vpc/aws"
+
+  name = "dev"
+  cidr = "10.0.0.0/16"
+
+  azs            = data.aws_availability_zones.available.names
+  public_subnets = ["10.0.101.0/24", "10.0.102.0/24", "10.0.103.0/24", "10.0.105.0/24"]
+#  public_subnets = [for cidr_block in data.aws_availability_zones.available.names : cidrsubnet("10.0.0.0/16", 8, 4)]
+
+  enable_nat_gateway = true
+
+  tags = {
+    Environment = "dev"
+  }
 }
 
 resource "aws_instance" "blog" {
@@ -37,7 +54,7 @@ module "blog_security_group" {
   name        = "blog"
   description = "Allow HTTP and HTTPS from my IP in."
 
-  vpc_id = data.aws_vpc.default.id
+  vpc_id = module.dev_vpc.public_subnets[0]
 
   ingress_rules       = ["http-80-tcp", "https-443-tcp"]
   ingress_cidr_blocks = ["0.0.0.0/0"]
