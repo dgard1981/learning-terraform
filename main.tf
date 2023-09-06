@@ -57,7 +57,7 @@ module "dev_vpc" {
 module "blog_security_group" {
   source = "terraform-aws-modules/security-group/aws"
 
-  name        = "blog"
+  name        = "${var.environment.name}-blog"
   description = "Allow HTTP and HTTPS from my IP in."
 
   vpc_id = module.dev_vpc.vpc_id
@@ -73,7 +73,7 @@ module "blog_autoscaling" {
   source  = "terraform-aws-modules/autoscaling/aws"
   version = "6.10.0"
 
-  name          = "blog"
+  name          = "${var.environment.name}-blog"
   image_id      = data.aws_ami.blog.id
   
   instance_type = var.autoscaling.instance_type
@@ -89,17 +89,17 @@ module "blog_alb" {
   source  = "terraform-aws-modules/alb/aws"
   version = "~> 8.0"
 
-  name = "blog-alb"
+  name = "${var.environment.name}-blog"
 
   load_balancer_type = "application"
 
   vpc_id             = module.dev_vpc.vpc_id
-  subnets            = module.dev_vpc.public_subnets
+  subnets            = m odule.dev_vpc.public_subnets
   security_groups    = [module.blog_security_group.security_group_id]
 
   target_groups = [
     {
-      name_prefix      = "${var.environment.name}-blog-"
+      name_prefix      = "${var.environment.name}-"
       backend_protocol = "HTTP"
       backend_port     = 80
       target_type      = "instance"
