@@ -19,15 +19,31 @@ locals {
 
   available_zone_cidr_blocks = tomap({
     for az, k in local.available_zone_letters :
-    az => cidrsubnet("10.0.0.0/16", 8, local.az_network_numbers[k])
+    az => cidrsubnet(var.environment.vpc_cidr, 8, local.az_network_numbers[k])
   })
+}
+
+data "aws_ami" "blog" {
+  most_recent = true
+
+  filter {
+    name   = "name"
+    values = [var.ami.name]
+  }
+
+  filter {
+    name   = "virtualization-type"
+    values = ["hvm"]
+  }
+
+  owners = [var.ami.owner] # Bitnami
 }
 
 module "dev_vpc" {
   source = "terraform-aws-modules/vpc/aws"
 
-  name = "dev"
-  cidr = "10.0.0.0/16"
+  name = var.environment.name
+  cidr = var.environment.vpc_cidr
 
   azs                     = keys(local.available_zone_cidr_blocks)
   public_subnets          = values(local.available_zone_cidr_blocks)
@@ -53,44 +69,16 @@ module "blog_security_group" {
   egress_cidr_blocks = ["0.0.0.0/0"]
 }
 
-data "aws_ami" "blog" {
-  most_recent = true
-
-  filter {
-    name   = "name"
-    values = ["bitnami-tomcat-*-x86_64-hvm-ebs-nami"]
-  }
-
-  filter {
-    name   = "virtualization-type"
-    values = ["hvm"]
-  }
-
-  owners = ["979382823631"] # Bitnami
-}
-
-# resource "aws_instance" "blog" {
-#   ami           = data.aws_ami.blog.id
-#   instance_type = var.instance_type
-# 
-#   subnet_id = module.dev_vpc.public_subnets[0]
-#   vpc_security_group_ids      = [module.blog_security_group.security_group_id]
-# 
-#   tags = {
-#     Name = "HelloWorld"
-#   }
-# }
-
 module "blog_autoscaling" {
   source  = "terraform-aws-modules/autoscaling/aws"
   version = "6.10.0"
 
   name          = "blog"
   image_id      = data.aws_ami.blog.id
-  instance_type = var.instance_type
   
-  min_size = 1
-  max_size = 2
+  instance_type = var.autoscaling.instance_type
+  min_size = var.autoscaling.min_size
+  max_size = var.autoscaling.max_size
   
   vpc_zone_identifier = module.dev_vpc.public_subnets
   security_groups     = [module.blog_security_group.security_group_id]
