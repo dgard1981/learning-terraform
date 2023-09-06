@@ -18,14 +18,28 @@ data "aws_availability_zones" "available" {
   state = "available"
 }
 
+data "aws_subnets" "public" {
+  filter {
+    name   = "map-public-ip-on-launch"
+    values = [true]
+  }
+}
+
+data "aws_subnet" "public" {
+  for_each = toset(data.aws_subnets.public.ids)
+  id       = each.value
+}
+
 module "dev_vpc" {
   source = "terraform-aws-modules/vpc/aws"
 
   name = "dev"
   cidr = "10.0.0.0/16"
 
-  azs            = data.aws_availability_zones.available.names
-  public_subnets = [for x in range(length(data.aws_availability_zones.available.names)) : cidrsubnet("10.0.0.0/16", 8, x + 101)]
+  # azs            = data.aws_availability_zones.available.names
+  # public_subnets = [for x in range(length(data.aws_availability_zones.available.names)) : cidrsubnet("10.0.0.0/16", 8, x + 101)]
+  azs            = [for s in data.aws_subnet.public : s.availability_zone]
+  public_subnets = [for s in data.aws_subnet.public : s.cidr_block]
 
   enable_nat_gateway = true
 
