@@ -36,7 +36,7 @@ data "aws_ami" "blog" {
     values = ["hvm"]
   }
 
-  owners = [var.ami.owner] # Bitnami
+  owners = [var.ami.owner]
 }
 
 module "dev_vpc" {
@@ -50,7 +50,7 @@ module "dev_vpc" {
   map_public_ip_on_launch = true
 
   tags = {
-    Environment = "dev"
+    Environment = var.environment.name
   }
 }
 
@@ -99,7 +99,7 @@ module "blog_alb" {
 
   target_groups = [
     {
-      name_prefix      = "blog-"
+      name_prefix      = "${var.environment.name}-blog-"
       backend_protocol = "HTTP"
       backend_port     = 80
       target_type      = "instance"
@@ -115,6 +115,6 @@ module "blog_alb" {
   ]
 
   tags = {
-    Environment = "dev"
+    Environment = var.environment.name
   }
 }
