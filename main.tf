@@ -23,7 +23,7 @@ locals {
   })
 }
 
-module "dev_vpc" {
+module "blog_vpc" {
   source = "terraform-aws-modules/vpc/aws"
 
   name = "dev"
@@ -36,6 +36,21 @@ module "dev_vpc" {
   tags = {
     Environment = "dev"
   }
+}
+
+module "blog_security_group" {
+  source = "terraform-aws-modules/security-group/aws"
+
+  name        = "blog"
+  description = "Allow HTTP and HTTPS from my IP in."
+
+  vpc_id = module.blog_vpc.vpc_id
+
+  ingress_rules       = ["http-80-tcp", "https-443-tcp"]
+  ingress_cidr_blocks = ["0.0.0.0/0"]
+
+  egress_rules       = ["all-all"]
+  egress_cidr_blocks = ["0.0.0.0/0"]
 }
 
 data "aws_ami" "blog" {
@@ -58,7 +73,7 @@ resource "aws_instance" "blog" {
   ami           = data.aws_ami.blog.id
   instance_type = var.instance_type
 
-  subnet_id = module.dev_vpc.public_subnets[0]
+  subnet_id = module.blog_vpc.public_subnets[0]
   vpc_security_group_ids      = [module.blog_security_group.security_group_id]
 
   tags = {
@@ -66,17 +81,42 @@ resource "aws_instance" "blog" {
   }
 }
 
-module "blog_security_group" {
-  source = "terraform-aws-modules/security-group/aws"
+module "alb" {
+  source  = "terraform-aws-modules/alb/aws"
+  version = "~> 8.0"
 
-  name        = "blog"
-  description = "Allow HTTP and HTTPS from my IP in."
+  name = "blog-alb"
 
-  vpc_id = module.dev_vpc.vpc_id
+  load_balancer_type = "application"
 
-  ingress_rules       = ["http-80-tcp", "https-443-tcp"]
-  ingress_cidr_blocks = ["0.0.0.0/0"]
+  vpc_id             = module.blog_vpc.vpc_id
+  subnets            = module.blog_vpc.public_subnets
+  security_groups    = module.blog_security_group.security_group_id
 
-  egress_rules       = ["all-all"]
-  egress_cidr_blocks = ["0.0.0.0/0"]
+  target_groups = [
+    {
+      name_prefix      = "blog-"
+      backend_protocol = "HTTP"
+      backend_port     = 80
+      target_type      = "instance"
+      targets = {
+        my_target = {
+          target_id = aws_instance.blog.id
+          port = 80
+        }
+      }
+    }
+  ]
+
+  http_tcp_listeners = [
+    {
+      port               = 80
+      protocol           = "HTTP"
+      target_group_index = 0
+    }
+  ]
+
+  tags = {
+    Environment = "dev"
+  }
 }
