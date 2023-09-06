@@ -93,7 +93,7 @@ module "blog_autoscaling" {
   max_size = 2
   
   vpc_zone_identifier = module.dev_vpc.public_subnets
-  security_group      = [module.blog_security_group.security_group_id]
+  security_groups     = [module.blog_security_group.security_group_id]
   target_group_arns   = module.blog_alb.target_group_arns
 }
 
