@@ -39,7 +39,7 @@ data "aws_ami" "blog" {
   owners = [var.ami.owner]
 }
 
-module "dev_vpc" {
+module "blog_vpc" {
   source = "terraform-aws-modules/vpc/aws"
 
   name = var.environment.name
@@ -60,7 +60,7 @@ module "blog_security_group" {
   name        = "${var.environment.name}-blog"
   description = "Allow HTTP and HTTPS from my IP in."
 
-  vpc_id = module.dev_vpc.vpc_id
+  vpc_id = module.blog_vpc.vpc_id
 
   ingress_rules       = ["http-80-tcp", "https-443-tcp"]
   ingress_cidr_blocks = ["0.0.0.0/0"]
@@ -80,7 +80,7 @@ module "blog_autoscaling" {
   min_size = var.autoscaling.min_size
   max_size = var.autoscaling.max_size
   
-  vpc_zone_identifier = module.dev_vpc.public_subnets
+  vpc_zone_identifier = module.blog_vpc.public_subnets
   security_groups     = [module.blog_security_group.security_group_id]
   target_group_arns   = module.blog_alb.target_group_arns
 }
@@ -93,8 +93,8 @@ module "blog_alb" {
 
   load_balancer_type = "application"
 
-  vpc_id             = module.dev_vpc.vpc_id
-  subnets            = module.dev_vpc.public_subnets
+  vpc_id             = module.blog_vpc.vpc_id
+  subnets            = module.blog_vpc.public_subnets
   security_groups    = [module.blog_security_group.security_group_id]
 
   target_groups = [
