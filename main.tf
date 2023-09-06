@@ -1,4 +1,44 @@
-data "aws_ami" "app_ami" {
+data "aws_availability_zones" "available" {
+  state = "available"
+}
+
+locals {
+  az_network_numbers = tomap({
+    a = 101
+    b = 102
+    c = 103
+    d = 104
+    e = 105
+    f = 106
+  })
+
+  available_zone_letters = tomap({
+    for az in data.aws_availability_zones.available.names :
+    az => regex("[a-z]$", az) # take only the final letter
+  })
+
+  available_zone_cidr_blocks = tomap({
+    for az, k in local.available_zone_letters :
+    az => cidrsubnet("10.0.0.0/16", 8, local.az_network_numbers[k])
+  })
+}
+
+module "dev_vpc" {
+  source = "terraform-aws-modules/vpc/aws"
+
+  name = "dev"
+  cidr = "10.0.0.0/16"
+
+  azs                     = keys(local.available_zone_cidr_blocks)
+  public_subnets          = values(local.available_zone_cidr_blocks)
+  map_public_ip_on_launch = true
+
+  tags = {
+    Environment = "dev"
+  }
+}
+
+data "aws_ami" "blog" {
   most_recent = true
 
   filter {
@@ -14,47 +54,12 @@ data "aws_ami" "app_ami" {
   owners = ["979382823631"] # Bitnami
 }
 
-data "aws_availability_zones" "available" {
-  state = "available"
-}
-
-data "aws_subnets" "public" {
-  filter {
-    name   = "map-public-ip-on-launch"
-    values = [true]
-  }
-}
-
-data "aws_subnet" "public" {
-  for_each = toset(data.aws_subnets.public.ids)
-  id       = each.value
-}
-
-module "dev_vpc" {
-  source = "terraform-aws-modules/vpc/aws"
-
-  name = "dev"
-  cidr = "10.0.0.0/16"
-
-  # azs            = data.aws_availability_zones.available.names
-  # public_subnets = [for x in range(length(data.aws_availability_zones.available.names)) : cidrsubnet("10.0.0.0/16", 8, x + 101)]
-  azs            = [for s in data.aws_subnet.public : s.availability_zone]
-  public_subnets = [for s in data.aws_subnet.public : s.cidr_block]
-
-  enable_nat_gateway = true
-
-  tags = {
-    Environment = "dev"
-  }
-}
-
 resource "aws_instance" "blog" {
-  ami           = data.aws_ami.app_ami.id
+  ami           = data.aws_ami.blog.id
   instance_type = var.instance_type
 
-  key_name = "terraform-course"
-
-  vpc_security_group_ids = [module.blog_security_group.security_group_id]
+  subnet_id = module.dev_vpc.public_subnets[0]
+  vpc_security_group_ids      = [module.blog_security_group.security_group_id]
 
   tags = {
     Name = "HelloWorld"
@@ -62,12 +67,12 @@ resource "aws_instance" "blog" {
 }
 
 module "blog_security_group" {
-  source      = "terraform-aws-modules/security-group/aws"
-  version     = "5.1.0"
+  source = "terraform-aws-modules/security-group/aws"
+
   name        = "blog"
   description = "Allow HTTP and HTTPS from my IP in."
 
-  vpc_id = module.dev_vpc.public_subnets[0]
+  vpc_id = module.dev_vpc.vpc_id
 
   ingress_rules       = ["http-80-tcp", "https-443-tcp"]
   ingress_cidr_blocks = ["0.0.0.0/0"]
