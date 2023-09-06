@@ -69,19 +69,35 @@ data "aws_ami" "blog" {
   owners = ["979382823631"] # Bitnami
 }
 
-resource "aws_instance" "blog" {
-  ami           = data.aws_ami.blog.id
+# resource "aws_instance" "blog" {
+#   ami           = data.aws_ami.blog.id
+#   instance_type = var.instance_type
+# 
+#   subnet_id = module.dev_vpc.public_subnets[0]
+#   vpc_security_group_ids      = [module.blog_security_group.security_group_id]
+# 
+#   tags = {
+#     Name = "HelloWorld"
+#   }
+# }
+
+module "blog_autoscaling" {
+  source  = "terraform-aws-modules/autoscaling/aws"
+  version = "6.10.0"
+
+  name          = "blog"
+  image_id      = data.aws_ami.blog.id
   instance_type = var.instance_type
-
-  subnet_id = module.dev_vpc.public_subnets[0]
-  vpc_security_group_ids      = [module.blog_security_group.security_group_id]
-
-  tags = {
-    Name = "HelloWorld"
-  }
+  
+  min_size = 1
+  max_size = 2
+  
+  vpc_zone_identifier = module.dev_vpc.public_subnets
+  security_group      = [module.blog_security_group.security_group_id]
+  target_group_arns   = module.blog_alb.target_group_arns
 }
 
-module "alb" {
+module "blog_alb" {
   source  = "terraform-aws-modules/alb/aws"
   version = "~> 8.0"
 
