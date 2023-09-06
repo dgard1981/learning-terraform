@@ -94,7 +94,7 @@ module "blog_alb" {
   load_balancer_type = "application"
 
   vpc_id             = module.dev_vpc.vpc_id
-  subnets            = m odule.dev_vpc.public_subnets
+  subnets            = module.dev_vpc.public_subnets
   security_groups    = [module.blog_security_group.security_group_id]
 
   target_groups = [
