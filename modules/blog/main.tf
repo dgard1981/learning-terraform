@@ -13,17 +13,17 @@ locals {
   })
 
   available_zone_letters = tomap({
-    for az in data.aws_availability_zones.available.names :
-    az => regex("[a-z]$", az) # take only the final letter
+    for az in data.aws_availability_zones.available.names:
+      az => regex("[a-z]$", az)
   })
 
   available_zone_cidr_blocks = tomap({
-    for az, k in local.available_zone_letters :
-    az => cidrsubnet(var.environment.vpc_cidr, 8, local.az_network_numbers[k])
+    for az, n in local.available_zone_letters:
+      az => cidrsubnet(var.environment.vpc_cidr, 8, local.az_network_numbers[n])
   })
 }
 
-data "aws_ami" "blog" {
+data "aws_ami" "tomcat" {
   most_recent = true
 
   filter {
