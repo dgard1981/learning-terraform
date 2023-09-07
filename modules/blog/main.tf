@@ -42,7 +42,7 @@ data "aws_ami" "blog" {
 module "blog_vpc" {
   source = "terraform-aws-modules/vpc/aws"
 
-  name = var.environment.name
+  name = "${var.environment.name}-blog"
   cidr = var.environment.vpc_cidr
 
   azs                     = keys(local.available_zone_cidr_blocks)
