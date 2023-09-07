@@ -23,7 +23,7 @@ locals {
   })
 }
 
-data "aws_ami" "tomcat" {
+data "aws_ami" "blog" {
   most_recent = true
 
   filter {
